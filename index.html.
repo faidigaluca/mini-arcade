@@ -1,0 +1,329 @@
+
+
+<!DOCTYPE html>
+
+<html lang="it">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<meta name="theme-color" content="#f8fafc">
+
+<title>Dodge Rush — Mini Arcade</title>
+
+<style>
+
+*{box-sizing:border-box}
+
+body{margin:0;background:#f8fafc;color:#172033;
+
+font-family:system-ui,-apple-system,sans-serif}
+
+main{max-width:560px;margin:auto;padding:24px 18px}
+
+header{display:flex;justify-content:space-between;
+
+align-items:center;margin-bottom:26px}
+
+.logo{font-size:20px;font-weight:850;letter-spacing:-1px}
+
+.tag{font-size:12px;color:#64748b}
+
+h1{font-size:32px;letter-spacing:-1.5px;margin:0 0 8px}
+
+p{color:#64748b;line-height:1.5}
+
+.panel{background:white;border:1px solid #e2e8f0;
+
+border-radius:18px;padding:16px;margin-top:22px}
+
+.stats{display:flex;justify-content:space-between;
+
+font-size:13px;color:#64748b;margin-bottom:12px}
+
+.stats strong{color:#172033}
+
+canvas{display:block;width:100%;height:auto;
+
+background:#101827;border-radius:12px;touch-action:pan-y}
+
+button{border:0;border-radius:12px;padding:14px;
+
+font:inherit;font-weight:700;cursor:pointer}
+
+.primary{background:#172033;color:white;width:100%;
+
+margin-top:14px}
+
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+.controls button{background:#e8edf5;color:#172033}
+
+.note{text-align:center;font-size:12px;margin-top:12px}
+
+footer{text-align:center;font-size:12px;color:#94a3b8;
+
+padding:28px 0}
+
+</style>
+
+</head>
+
+<body>
+
+<main>
+
+<header>
+
+  <div class="logo">MINI<span style="color:#0d9b72">.</span>ARCADE</div>
+
+  <div class="tag">GIOCHI GRATUITI</div>
+
+</header>
+
+<h1>Un'altra partita?</h1>
+
+<p>Partite veloci. Record da battere. Divertimento senza fine.</p>
+
+<section class="panel">
+
+  <div class="stats">
+
+    <span>PUNTEGGIO <strong id="score">0</strong></span>
+
+    <span>RECORD <strong id="best">0</strong></span>
+
+  </div>
+
+  <canvas id="game" width="320" height="420"
+
+    aria-label="Gioco Dodge Rush"></canvas>
+
+  <button class="primary" id="start">Gioca ora</button>
+
+  <div class="controls" style="margin-top:10px">
+
+    <button id="left" aria-label="Sposta a sinistra">← Sinistra</button>
+
+    <button id="right" aria-label="Sposta a destra">Destra →</button>
+
+  </div>
+
+  <p class="note" id="message">Premi Gioca ora per iniziare.</p>
+
+</section>
+
+<footer>MINI.ARCADE · Un piccolo gioco, grandi record.</footer>
+
+</main>
+
+<script>
+
+const canvas=document.getElementById('game');
+
+const ctx=canvas.getContext('2d');
+
+const scoreEl=document.getElementById('score');
+
+const bestEl=document.getElementById('best');
+
+const message=document.getElementById('message');
+
+const startBtn=document.getElementById('start');
+
+let best=0;
+
+try{best=Number(localStorage.getItem('dodgeBest'))||0}catch(e){}
+
+bestEl.textContent=best;
+
+let player={x:145,y:360,w:30,h:30};
+
+let blocks=[],score=0,running=false,ended=false;
+
+let last=0,spawn=0,raf=0;
+
+let keys={left:false,right:false};
+
+let lastTime=0;
+
+function reset(){
+
+  player.x=145;blocks=[];score=0;spawn=0;
+
+  scoreEl.textContent='0';last=0;lastTime=0;
+
+}
+
+function draw(){
+
+  ctx.clearRect(0,0,320,420);
+
+  ctx.strokeStyle='#263449';ctx.lineWidth=1;
+
+  for(let y=0;y<420;y+=30){
+
+    ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(320,y);ctx.stroke();
+
+  }
+
+  blocks.forEach(b=>{
+
+    ctx.fillStyle='#fb7185';
+
+    ctx.fillRect(b.x,b.y,b.w,b.h);
+
+    ctx.fillStyle='#fecdd3';
+
+    ctx.fillRect(b.x+4,b.y+4,b.w-8,3);
+
+  });
+
+  ctx.fillStyle='#6ee7b7';
+
+  ctx.fillRect(player.x,player.y,player.w,player.h);
+
+  ctx.fillStyle='#d1fae5';
+
+  ctx.fillRect(player.x+7,player.y+6,16,4);
+
+}
+
+function finish(){
+
+  running=false;ended=true;
+
+  cancelAnimationFrame(raf);
+
+  startBtn.textContent='Riprova';
+
+  message.textContent='Partita terminata! Punteggio: '+score;
+
+}
+
+function loop(time){
+
+  if(!running)return;
+
+  const dt=Math.min((time-lastTime)/16.67||1,2.5);
+
+  lastTime=time;
+
+  score+=dt*.15;
+
+  scoreEl.textContent=Math.floor(score);
+
+  const speed=Math.min(3.5+score/180,8);
+
+  if(keys.left)player.x-=5*dt;
+
+  if(keys.right)player.x+=5*dt;
+
+  player.x=Math.max(0,Math.min(290,player.x));
+
+  spawn+=dt;
+
+  if(spawn>Math.max(17,42-score/20)){
+
+    spawn=0;
+
+    blocks.push({x:Math.random()*286,y:-25,w:24+Math.random()*14,h:20});
+
+  }
+
+  blocks.forEach(b=>{
+
+    b.y+=speed*dt;
+
+    if(player.x<b.x+b.w&&player.x+player.w>b.x&&
+
+       player.y<b.y+b.h&&player.y+player.h>b.y)finish();
+
+  });
+
+  blocks=blocks.filter(b=>b.y<440);
+
+  draw();
+
+  if(running)raf=requestAnimationFrame(loop);
+
+}
+
+function start(){
+
+  cancelAnimationFrame(raf);
+
+  reset();running=true;ended=false;
+
+  startBtn.textContent='Gioca di nuovo';
+
+  message.textContent='Schiva gli ostacoli!';
+
+  raf=requestAnimationFrame(loop);
+
+}
+
+startBtn.addEventListener('click',start);
+
+function hold(id,key){
+
+  const btn=document.getElementById(id);
+
+  btn.addEventListener('pointerdown',e=>{
+
+    e.preventDefault();keys[key]=true;
+
+  });
+
+  ['pointerup','pointercancel','pointerleave'].forEach(evt=>
+
+    btn.addEventListener(evt,()=>keys[key]=false));
+
+}
+
+hold('left','left');hold('right','right');
+
+window.addEventListener('keydown',e=>{
+
+  if(['ArrowLeft','ArrowRight','a','d'].includes(e.key))e.preventDefault();
+
+  if(e.key==='ArrowLeft'||e.key==='a')keys.left=true;
+
+  if(e.key==='ArrowRight'||e.key==='d')keys.right=true;
+
+});
+
+window.addEventListener('keyup',e=>{
+
+  if(e.key==='ArrowLeft'||e.key==='a')keys.left=false;
+
+  if(e.key==='ArrowRight'||e.key==='d')keys.right=false;
+
+});
+
+function saveBest(){
+
+  if(Math.floor(score)>best){
+
+    best=Math.floor(score);bestEl.textContent=best;
+
+    try{localStorage.setItem('dodgeBest',best)}catch(e){}
+
+  }
+
+}
+
+const originalFinish=finish;
+
+finish=function(){saveBest();originalFinish()};
+
+draw();
+
+</script>
+
+</body>
+
+</html>
